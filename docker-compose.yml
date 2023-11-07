@@ -1,0 +1,9 @@
+version: "1.0"
+services:
+  apiserver:
+    container_name: t4api.docker
+    build: .
+    ports:
+      - "8080:80"
+    volumes:
+        - ./:/var/www/html
