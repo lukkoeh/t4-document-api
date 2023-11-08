@@ -7,3 +7,13 @@ services:
       - "8080:80"
     volumes:
         - ./:/var/www/html
+  database:
+    container_name: database.docker
+    image: mariadb:latest
+    ports:
+      - "23306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root1234
+      - MYSQL_DATABASE=t4api
+      - MYSQL_USER=t4api
+      - MYSQL_PASSWORD=t4api1234
