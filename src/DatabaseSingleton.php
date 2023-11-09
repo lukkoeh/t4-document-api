@@ -54,7 +54,11 @@ class DatabaseSingleton
      */
     public function perform_query($rawquery, $params): mysqli_result|bool
     {
-
         return $this->connection->execute_query($rawquery,$params);
+    }
+
+    public function get_last_inserted_id(): int
+    {
+        return $this->connection->insert_id;
     }
 }

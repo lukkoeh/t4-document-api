@@ -3,6 +3,7 @@
 namespace src;
 
 use Exception;
+use JetBrains\PhpStorm\NoReturn;
 
 /**
  * Class AuthenticationProvider
@@ -47,9 +48,9 @@ class AuthenticationProvider
 
     /**
      * @throws Exception
-     * Checks if a token is valid, for every request.
+     * Checks if a token is valid, for every request. Also provide the answer directly.
      */
-    public function validatetoken($token): bool
+    public static function validatetoken($token): void
     {
         $database_connection = DatabaseSingleton::getInstance();
         # Check if token exists
@@ -61,12 +62,15 @@ class AuthenticationProvider
             # check if token is expired
             if ($session_expire < date("Y-m-d H:i:s")) {
                 # if expired return false
-                return false;
+                $res = new Response("401", ["message" => "Token expired"]);
+                ResponseController::respondJson($res);
             }
-            return true;
+            # if not expired just return.
+            return;
         } else {
             # if not exists
-            return false;
+            $res = new Response("401", ["message" => "Invalid token"]);
+            ResponseController::respondJson($res);
         }
     }
 
@@ -102,18 +106,18 @@ class AuthenticationProvider
 
     /**
      * Create deleteuser function
+     * @throws Exception
      */
-    public function deleteUser($token): void {
+    #[NoReturn] public function deleteUser($token): void {
         # check if token is valid
-        if (!$this->validatetoken($token)) {
-            $res = new Response("403", ["message" => "You are not authorized to perform this action"]);
-            ResponseController::respondJson($res);
-        }
+        AuthenticationProvider::validatetoken($token);
         $db_connection = DatabaseSingleton::getInstance();
         # get user id from token
         $user_id = $db_connection->perform_query("SELECT session_user FROM t4_sessions WHERE session_token = ?", [$token])->fetch_assoc()["session_user"];
         # Delete all session tokens of the user
         $delete_sessions = $db_connection->perform_query("DELETE FROM t4_sessions WHERE session_user = ?", [$user_id]);
+        $delete_deltas = $db_connection->perform_query("DELETE FROM t4_deltas WHERE delta_owner = ?", [$user_id]);
+        $delete_documents = $db_connection->perform_query("DELETE FROM t4_documents WHERE document_owner = ?", [$user_id]);
         if (!$delete_sessions) {
             $res = new Response("500", ["message" => "Error while deleting user sessions"]);
             ResponseController::respondJson($res);
@@ -135,10 +139,7 @@ class AuthenticationProvider
     public function updatePassword($token, $oldpassword, $newpassword): void
     {
         # check if the token is valid
-        if (!$this->validatetoken($token)) {
-            $res = new Response("403", ["message" => "You are not authorized to perform this action"]);
-            ResponseController::respondJson($res);
-        }
+        AuthenticationProvider::validatetoken($token);
         # get database connection
         $database_connection = DatabaseSingleton::getInstance();
         # get user id from token
@@ -171,10 +172,7 @@ class AuthenticationProvider
     public function updateUserdata($token, $firstname, $lastname, $email): void
     {
         # check if token is valid
-        if (!$this->validatetoken($token)) {
-            $res = new Response("403", ["message" => "You are not authorized to perform this action"]);
-            ResponseController::respondJson($res);
-        }
+        AuthenticationProvider::validatetoken($token);
         $db_connection = DatabaseSingleton::getInstance();
         # get user id from token
         $user_id = $db_connection->perform_query("SELECT session_user FROM t4_sessions WHERE session_token = ?", [$token])->fetch_assoc()["session_user"];
@@ -200,10 +198,7 @@ class AuthenticationProvider
     public function readUserdata($token): void
     {
         # check if token is valid
-        if (!$this->validatetoken($token)) {
-            $res = new Response("403", ["message" => "You are not authorized to perform this action"]);
-            ResponseController::respondJson($res);
-        }
+        AuthenticationProvider::validatetoken($token);
         $db_connection = DatabaseSingleton::getInstance();
         # get user id from token
         $user_id = $db_connection->perform_query("SELECT session_user FROM t4_sessions WHERE session_token = ?", [$token])->fetch_assoc()["session_user"];
@@ -212,4 +207,22 @@ class AuthenticationProvider
         $res = new Response("200", ["message" => "User data fetched successfully", "data" => $user_data]);
         ResponseController::respondJson($res);
     }
+
+    /**
+     * @throws Exception
+     * Function to fetch a user_id by token, returns the user_id as int
+     */
+    public static function getUserIdByToken($token): int {
+        # check if token is valid
+        $db_connection = DatabaseSingleton::getInstance();
+        # get user id from token
+        $idnull = $db_connection->perform_query("SELECT session_user FROM t4_sessions WHERE session_token = ?", [$token])->fetch_assoc()["session_user"];
+        if ($idnull == null) {
+            $res = new Response("500", ["message" => "Error while fetching user id"]);
+            ResponseController::respondJson($res);
+        }
+        return $idnull;
+    }
+
+
 }
