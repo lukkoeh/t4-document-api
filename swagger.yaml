@@ -1,0 +1,342 @@
+openapi: 3.0.0
+info:
+  title: T4-Document-API
+  description: An API to interact with the database of the T4-Document-App
+  version: 1.0.0
+servers:
+  - url: http://localhost:10001
+    description: Docker Server, Port may vary!
+tags:
+  - name: User-CRUD
+    description: Everything you need to interact with User Accounts
+  - name: Authentication-API
+    description: Provides Authentication to generate tokens, retrieve user_ids etc.
+paths:
+  /user/{id}:
+    get:
+      tags:
+        - User-CRUD
+      summary: Gets meta for a user specified by the id
+      parameters:
+        - name: id
+          in: path
+          description: The id of the user
+          required: true
+          schema:
+            type: integer
+        - in: header
+          name: X-Auth-Token
+          description: The auth token of the user, will be used to find the user.
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User Metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    description: The id of the user
+                  firstname:
+                    type: string
+                    description: The firstname of the user
+                  lastname:
+                    type: string
+                    description: The lastname of the user
+                  email:
+                    type: string
+                    description: The email of the user
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: Bad Request
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Not found
+                    example: User was not found
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: You are unauthorized to access this resource
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error Message
+                    example: Internal Server Error
+    delete:
+      summary: Delete the user specified by the id
+      tags:
+        - User-CRUD
+      parameters:
+        - name: id
+          in: path
+          description: The id of the user
+          required: true
+          schema:
+            type: integer
+        - in: header
+          name: X-Auth-Token
+          description: The auth token of the user, will be used to find the user.
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: When the user can be deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: OK
+                    example: The user was deleted successfully
+        "404":
+          description: If the user was not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Not found
+                    example: The requested user was not found
+        "401":
+          description: If the authentication fails
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Not authorized
+                    example: You are not authorized to update user data
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Bad Request
+                    example: You performed a malformed request
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Bad Request
+                    example: An internal Server Error occurred
+    patch:
+      summary: Update a users Metadata specified by id
+      tags:
+        - User-CRUD
+      parameters:
+        - name: id
+          in: path
+          description: The id of the user
+          required: true
+          schema:
+            type: integer
+        - in: header
+          name: X-Auth-Token
+          description: The auth token of the user, will be used to find the user.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        description: The updated user data
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                firstname:
+                  type: string
+                  description: The first name of the user
+                  example: John
+                lastname:
+                  type: string
+                  description: The last name of the user
+                  example: Doe
+                email:
+                  type: string
+                  description: The E-Mail of the user
+                  example: john.doe@gmail.com
+      responses:
+        "200":
+          description: If the user data was updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: OK
+                    example: User was updated successfully
+        "404":
+          description: If the user was not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Not found
+                    example: The requested user was not found
+        "401":
+          description: If the authentication fails
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Not authorized
+                    example: You are not authorized to update user data
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Bad Request
+                    example: You performed a malformed request
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Bad Request
+                    example: An internal Server Error occurred
+  /user:
+    post:
+      summary: Create a new user
+      tags:
+        - User-CRUD
+      requestBody:
+        description: The user data given by request
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                firstname:
+                  type: string
+                  description: The first name of the user
+                  example: John
+                lastname:
+                  type: string
+                  description: The last name of the user
+                  example: Doe
+                email:
+                  type: string
+                  description: The E-Mail of the user
+                  example: john.doe@gmail.com
+                password:
+                  type: string
+                  description: The password for the user
+                  example: 12345
+      responses:
+        "200":
+          description: If the user data was created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: OK
+                    example: User created successfully
+        "409":
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Conflict
+                    example: This email is already in use and cannot be used for another account creation
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Bad Request
+                    example: You performed a malformed request
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Bad Request
+                    example: An internal Server Error occurred
+
+
+
+
