@@ -128,6 +128,8 @@ class AuthenticationProvider
         # Delete all session tokens of the user
         $delete_sessions = $db_connection->perform_query("DELETE FROM t4_sessions WHERE session_user = ?", [$user_id]);
         $delete_deltas = $db_connection->perform_query("DELETE FROM t4_deltas WHERE delta_owner = ?", [$user_id]);
+        # delete shares
+        $delete_shares = $db_connection->perform_query("DELETE FROM t4_shared WHERE user_id = ?", [$user_id]);
         $delete_documents = $db_connection->perform_query("DELETE FROM t4_documents WHERE document_owner = ?", [$user_id]);
         if (!$delete_sessions) {
             $res = new Response("500", ["message" => "Error while deleting user sessions"]);

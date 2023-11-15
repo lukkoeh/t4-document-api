@@ -20,6 +20,18 @@ class DeltaProvider
         $userId = AuthenticationProvider::getUserIdByToken($token);
         $result = $db->perform_query("SELECT * FROM t4_deltas WHERE delta_owner = ? AND delta_document = ? ORDER BY delta_creation", [$userId, $documentid]);
         if ($result->num_rows == 0) {
+            # also check for shared documents
+            $result_shared = $db->perform_query("SELECT * FROM t4_deltas WHERE delta_document = ? AND delta_owner IN (SELECT user_id FROM t4_shared WHERE document_id = ?) ORDER BY delta_creation", [$documentid, $documentid]);
+            if ($result_shared->num_rows == 0) {
+                $r = new Response("404", ["message" => "No deltas found"]);
+            } else {
+                $deltas = [];
+                while ($row = $result_shared->fetch_assoc()) {
+                    $deltas[] = $row;
+                }
+                # print out the document data
+                $r = new Response("200", $deltas);
+            }
             $r = new Response("404", ["message" => "No deltas found"]);
         } else {
             $deltas = [];
@@ -32,13 +44,20 @@ class DeltaProvider
         ResponseController::respondJson($r);
     }
 
-    public function readDelta($token, $deltaid) : void {
+    #[NoReturn] public function readDelta($token, $deltaid) : void {
         AuthenticationProvider::validatetoken($token);
         $db = DatabaseSingleton::getInstance();
         # fetch the user_id
         $userId = AuthenticationProvider::getUserIdByToken($token);
         $result = $db->perform_query("SELECT * FROM t4_deltas WHERE delta_owner = ? AND delta_id = ?", [$userId, $deltaid]);
         if ($result->num_rows == 0) {
+            # check if this delta is shared, then print that out
+            $result_shared = $db->perform_query("SELECT * FROM t4_deltas WHERE delta_id = ? AND delta_owner IN (SELECT user_id FROM t4_shared WHERE document_id = ?)", [$deltaid, $deltaid]);
+            if ($result_shared->num_rows == 0) {
+                $r = new Response("404", ["message" => "Delta not found"]);
+            } else {
+                $r = new Response("200", $result_shared->fetch_assoc());
+            }
             $r = new Response("404", ["message" => "Delta not found"]);
         } else {
             # print out the document data
@@ -58,8 +77,12 @@ class DeltaProvider
         # check if the document exists
         $result = $db->perform_query("SELECT COUNT(document_id) as doccount FROM t4_documents WHERE document_owner = ? AND document_id = ?", [$userId, $documentid])->fetch_assoc()["doccount"];
         if ($result == 0) {
-            $r = new Response("404", ["message" => "Document in possesion not found"]);
-            ResponseController::respondJson($r);
+            # check if the document is shared
+            $result_shared = $db->perform_query("SELECT COUNT(document_id) as doccount FROM t4_documents WHERE document_id = ? AND document_id IN (SELECT document_id FROM t4_shared WHERE user_id = ?)", [$documentid, $userId])->fetch_assoc()["doccount"];
+            if ($result_shared == 0) {
+                $r = new Response("404", ["message" => "Document not found"]);
+                ResponseController::respondJson($r);
+            }
         }
         # create the delta
         $result = $db->perform_query("INSERT INTO t4_deltas (delta_owner, delta_document, delta_content) VALUES (?, ?, ?)", [$userId, $documentid, $deltacontent]);
@@ -82,11 +105,15 @@ class DeltaProvider
         # check if the delta exists
         $result = $db->perform_query("SELECT COUNT(delta_id) as deltacount FROM t4_deltas WHERE delta_owner = ? AND delta_id = ?", [$userId, $deltaid])->fetch_assoc()["deltacount"];
         if ($result == 0) {
-            $r = new Response("404", ["message" => "Delta not found"]);
-            ResponseController::respondJson($r);
+            # check if the delta is shared
+            $result_shared = $db->perform_query("SELECT COUNT(delta_id) as deltacount FROM t4_deltas WHERE delta_id = ? AND delta_owner IN (SELECT user_id FROM t4_shared WHERE document_id = ?)", [$deltaid, $deltaid])->fetch_assoc()["deltacount"];
+            if ($result_shared == 0) {
+                $r = new Response("404", ["message" => "Delta not found"]);
+                ResponseController::respondJson($r);
+            }
         }
-        # update the delta
-        $result = $db->perform_query("UPDATE t4_deltas SET delta_content = ? WHERE delta_owner = ? AND delta_id = ?", [$newcontent, $userId, $deltaid]);
+        # update the delta, also shared ones
+        $result = $db->perform_query("UPDATE t4_deltas SET delta_content = ? WHERE delta_id = ?", [$newcontent, $deltaid]);
         if ($result == 0) {
             $r = new Response("500", ["message" => "Delta could not be updated"]);
         } else {
@@ -106,11 +133,15 @@ class DeltaProvider
         # check if the delta exists
         $result = $db->perform_query("SELECT COUNT(delta_id) as deltacount FROM t4_deltas WHERE delta_owner = ? AND delta_id = ?", [$userId, $deltaid])->fetch_assoc()["deltacount"];
         if ($result == 0) {
-            $r = new Response("404", ["message" => "Delta not found"]);
-            ResponseController::respondJson($r);
+            # check if the delta is shared
+            $result_shared = $db->perform_query("SELECT COUNT(delta_id) as deltacount FROM t4_deltas WHERE delta_id = ? AND delta_owner IN (SELECT user_id FROM t4_shared WHERE document_id = ?)", [$deltaid, $deltaid])->fetch_assoc()["deltacount"];
+            if ($result_shared == 0) {
+                $r = new Response("404", ["message" => "Delta not found"]);
+                ResponseController::respondJson($r);
+            }
         }
         # delete the delta
-        $result = $db->perform_query("DELETE FROM t4_deltas WHERE delta_owner = ? AND delta_id = ?", [$userId, $deltaid]);
+        $result = $db->perform_query("DELETE FROM t4_deltas WHERE delta_id = ?", [$deltaid]);
         if ($result == 0) {
             $r = new Response("500", ["message" => "Delta could not be deleted"]);
         } else {
