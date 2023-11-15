@@ -16,231 +16,336 @@ function autoload($class): void
 spl_autoload_register('autoload');
 
 # Specify JSON Header and encoding
-header('Content-Type: application/json; charset=utf-8');
+header('Content-Type: application/json; charset=utf-8;');
+header('Access-Control-Allow-Origin: http://localhost:8080');
+header('Access-Control-Allow-Methods: GET, PUT, POST, DELETE');
+header('Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With');
 
 # get credentials from post arguments from rest api call
 
 # Parse Path
-$path = explode("/", $_SERVER['REQUEST_URI']);
+$route = explode("/", strtok($_SERVER['REQUEST_URI'], '?'));
 # Remove first blank element
-array_shift($path);
+array_shift($route);
+$option_count = sizeof($route);
 
-# Case switch determines Endpoint, and passes the path to the respective Controller
-switch ($path[0]) {
-    case 'users':
-        switch ($_SERVER["REQUEST_METHOD"]) {
-            case "POST":
-                $_POST = json_decode(file_get_contents("php://input"));
-                $auth = new AuthenticationProvider();
-                try {
-                    $auth->createUser($_POST->email, $_POST->password, $_POST->firstname, $_POST->lastname);
-                } catch (Exception $e) {
-                    $r = new Response("500", ["message" => $e->getMessage()]);
-                    ResponseController::respondJson($r);
-                }
-                break;
-            case "GET":
-                $_GET = json_decode(file_get_contents("php://input"));
-                $auth = new AuthenticationProvider();
-                try {
-                    $auth->readUserdata($_GET->token);
-                } catch (Exception $e) {
-                    $r = new Response("500", ["message" => $e->getMessage()]);
-                    ResponseController::respondJson($r);
-                }
-                break;
-            case "PUT":
-                $_PUT = json_decode(file_get_contents("php://input"));
-                $auth = new AuthenticationProvider();
-                try {
-                    $auth->updateUserdata($_PUT->token, $_PUT->firstname, $_PUT->lastname, $_PUT->email);
-                } catch (Exception $e) {
-                    $r = new Response("500", ["message" => $e->getMessage()]);
-                    ResponseController::respondJson($r);
-                }
-                break;
-            case "DELETE":
-                $_DELETE = json_decode(file_get_contents("php://input"));
-                $auth = new AuthenticationProvider();
-                try {
-                    $auth->deleteUser($_DELETE->token);
-                } catch (Exception $e) {
-                    $r = new Response("500", ["message" => $e->getMessage()]);
-                    ResponseController::respondJson($r);
-                }
-                break;
-        }
-        break;
-    case 'documents':
-        switch ($_SERVER["REQUEST_METHOD"]) {
-            case "GET":
-                $_GET = json_decode(file_get_contents("php://input"));
-                $doc = new DocumentProvider();
-                try {
-                    $doc->readDocumentMetaCollection($_GET->token);
-                } catch (Exception $e) {
-                    $r = new Response("500", ["message" => $e->getMessage()]);
-                    ResponseController::respondJson($r);
-                }
-                break;
-        }
-        break;
-    case 'document':
-        switch ($_SERVER["REQUEST_METHOD"]) {
-            case "GET":
-                if (sizeof($path) == 2) {
-                    $_GET = json_decode(file_get_contents("php://input"));
-                    $doc = new DocumentProvider();
-                    try {
-                        $doc->readDocumentMetaById($_GET->token, $path[1]);
-                    } catch (Exception $e) {
-                        $r = new Response("500", ["message" => $e->getMessage()]);
-                        ResponseController::respondJson($r);
+switch ($route[0]) {
+    case "user":
+        if (isset($route[1]) && is_numeric($route[1])) {
+            switch ($_SERVER["REQUEST_METHOD"]) {
+                case "GET":
+                    if (!isset($_SERVER["HTTP_X_AUTH_TOKEN"])) {
+                        $res = new Response("400", ["message" => "You performed a malformed request"]);
+                        ResponseController::respondJson($res);
                     }
-                } else {
-                    $r = new Response("400", ["message" => "Bad Request, requesting single document without id or with too many parameters."]);
-                    ResponseController::respondJson($r);
-                }
-                break;
-            case "POST":
-                $_POST = json_decode(file_get_contents("php://input"));
-                $doc = new DocumentProvider();
-                try {
-                    $doc->createDocument($_POST->token, $_POST->documentname);
-                } catch (Exception $e) {
-                    $r = new Response("500", ["message" => $e->getMessage()]);
-                    ResponseController::respondJson($r);
-                }
-                break;
-            case "PUT":
-                if (sizeof($path) == 2) {
-                    $_PUT = json_decode(file_get_contents("php://input"));
-                    $doc = new DocumentProvider();
+                    $auth_token = $_SERVER["HTTP_X_AUTH_TOKEN"];
+                    $user_id = $route[1];
+                    $auth = new AuthenticationProvider();
                     try {
-                        $doc->updateDocument($_PUT->token, $path[1], $_PUT->documentname);
+                        $auth->readUserdata($auth_token, $user_id);
                     } catch (Exception $e) {
-                        $r = new Response("500", ["message" => $e->getMessage()]);
-                        ResponseController::respondJson($r);
-                    }
-                }
-                else {
-                    $r = new Response("400", ["message" => "Bad Request, requesting single document update without id or with too many parameters."]);
-                    ResponseController::respondJson($r);
-                }
-                break;
-            case "DELETE":
-                if (sizeof($path) == 2) {
-                    $_DELETE = json_decode(file_get_contents("php://input"));
-                    $doc = new DocumentProvider();
-                    try {
-                        $doc->deleteDocument($_DELETE->token, $path[1]);
-                    } catch (Exception $e) {
-                        $r = new Response("500", ["message" => $e->getMessage()]);
-                        ResponseController::respondJson($r);
-                    }
-                }
-                else {
-                    $r = new Response("400", ["message" => "Bad Request, requesting single document delete without id or with too many parameters."]);
-                    ResponseController::respondJson($r);
-                }
-                break;
-        }
-        break;
-    case 'deltas':
-        switch ($_SERVER["REQUEST_METHOD"]) {
-            case "GET":
-                if (sizeof($path) == 2) {
-                    $_GET = json_decode(file_get_contents("php://input"));
-                    $deltaprovider = new DeltaProvider();
-                    try {
-                        $deltaprovider->readDocumentDeltas($_GET->token, $path[1]);
-                    } catch (Exception $e) {
-                        $r = new Response("500", ["message" => $e->getMessage()]);
-                        ResponseController::respondJson($r);
+                        $res = new Response("500", ["message" => "Internal Server Error"]);
+                        ResponseController::respondJson($res);
                     }
                     break;
-                }
-        }
-        break;
-    case 'delta':
-        switch ($_SERVER["REQUEST_METHOD"]) {
-            case "GET":
-                if (sizeof($path) == 2) {
-                    $_GET = json_decode(file_get_contents("php://input"));
-                    $deltaprovider = new DeltaProvider();
+                case "DELETE":
+                    if (!isset($_SERVER["HTTP_X_AUTH_TOKEN"])) {
+                        $res = new Response("400", ["message" => "You performed a malformed request"]);
+                        ResponseController::respondJson($res);
+                    }
+                    $auth_token = $_SERVER["HTTP_X_AUTH_TOKEN"];
+                    $user_id = $route[1];
+                    $auth = new AuthenticationProvider();
                     try {
-                        $deltaprovider->readDelta($_GET->token, $path[1]);
+                        $auth->deleteUser($auth_token, $user_id);
                     } catch (Exception $e) {
-                        $r = new Response("500", ["message" => $e->getMessage()]);
-                        ResponseController::respondJson($r);
+                        $res = new Response("500", ["message" => "Internal Server Error"]);
+                        ResponseController::respondJson($res);
                     }
                     break;
-                }
-                break;
-            case "POST":
-                $_POST = json_decode(file_get_contents("php://input"));
-                $deltaprovider = new DeltaProvider();
-                try {
-                    $deltaprovider->createDelta($_POST->token, $_POST->documentid, $_POST->deltacontent);
-                } catch (Exception $e) {
-                    $r = new Response("500", ["message" => $e->getMessage()]);
-                    ResponseController::respondJson($r);
-                }
-                break;
-            case "PUT":
-                if (sizeof($path) == 2) {
-                    $_PUT = json_decode(file_get_contents("php://input"));
-                    $deltaprovider = new DeltaProvider();
+                case "PATCH":
+                    if (!isset($_SERVER["HTTP_X_AUTH_TOKEN"])) {
+                        $res = new Response("400", ["message" => "You performed a malformed request"]);
+                        ResponseController::respondJson($res);
+                    }
+                    $auth_token = $_SERVER["HTTP_X_AUTH_TOKEN"];
+                    $user_id = $route[1];
+                    parse_str(file_get_contents('php://input'), $_PATCH);
+                    $auth = new AuthenticationProvider();
                     try {
-                        $deltaprovider->updateDelta($_PUT->token, $path[1], $_PUT->deltacontent);
+                        $auth->updateUserdata($auth_token, $user_id, $_PATCH["firstname"], $_PATCH["lastname"], $_PATCH["email"]);
                     } catch (Exception $e) {
-                        $r = new Response("500", ["message" => $e->getMessage()]);
-                        ResponseController::respondJson($r);
+                        $res = new Response("500", ["message" => "Internal Server Error"]);
+                        ResponseController::respondJson($res);
                     }
                     break;
-                }
-                break;
-            case "DELETE":
-                if (sizeof($path) == 2) {
-                    $_DELETE = json_decode(file_get_contents("php://input"));
-                    $deltaprovider = new DeltaProvider();
-                    try {
-                        $deltaprovider->deleteDelta($_DELETE->token, $path[1]);
-                    } catch (Exception $e) {
-                        $r = new Response("500", ["message" => $e->getMessage()]);
-                        ResponseController::respondJson($r);
-                    }
-                    break;
-                }
-                break;
-        }
-        break;
-    case 'auth':
-        if ($_SERVER["REQUEST_METHOD"] == "POST") {
-            $_POST = json_decode(file_get_contents("php://input"));
-            $auth = new AuthenticationProvider();
-            try {
-                $auth->login($_POST->email, $_POST->password);
-            } catch (Exception $e) {
-                $r = new Response("500", ["message" => $e->getMessage()]);
-                ResponseController::respondJson($r);
             }
-        } else if ($_SERVER["REQUEST_METHOD"] == "PUT") {
-            $_PUT = json_decode(file_get_contents("php://input"));
+        }
+        else if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $auth = new AuthenticationProvider();
             try {
-                $auth->updatePassword($_PUT->token, $_PUT->oldpassword, $_PUT->newpassword);
+                $auth->createUser($_POST["email"], $_POST["password"], $_POST["firstname"], $_POST["lastname"]);
             } catch (Exception $e) {
-                $r = new Response("500", ["message" => $e->getMessage()]);
-                ResponseController::respondJson($r);
+                $res = new Response("500", ["message" => "Internal Server Error"]);
+                ResponseController::respondJson($res);
+            }
+        }
+        else {
+            $res = new Response("400", ["message" => "You performed a malformed request"]);
+            ResponseController::respondJson($res);
+        }
+        break;
+    case "auth":
+        if (!is_numeric($route[1]) && $option_count > 1) {
+            switch ($route[1]) {
+                case "login":
+                    if ($_SERVER["REQUEST_METHOD"] == "POST") {
+                        $auth = new AuthenticationProvider();
+                        try {
+                            $auth->login($_POST["email"], $_POST["password"]);
+                        } catch (Exception $e) {
+                            $res = new Response("500", ["message" => "Internal Server Error"]);
+                            ResponseController::respondJson($res);
+                        }
+                    }
+                    else {
+                        $res = new Response("400", ["message" => "You performed a malformed request"]);
+                        ResponseController::respondJson($res);
+                    }
+                    break;
+                case "validate":
+                    if ($_SERVER["REQUEST_METHOD"] == "GET") {
+                        if (!isset($_SERVER["HTTP_X_AUTH_TOKEN"])) {
+                            $res = new Response("400", ["message" => "You performed a malformed request"]);
+                            ResponseController::respondJson($res);
+                        }
+                        $auth_token = $_SERVER["HTTP_X_AUTH_TOKEN"];
+                        $auth = new AuthenticationProvider();
+                        try {
+                            $auth->validateToken($auth_token, true);
+                        } catch (Exception $e) {
+                            $res = new Response("500", ["message" => "Internal Server Error"]);
+                            ResponseController::respondJson($res);
+                        }
+                    }
+                    else {
+                        $res = new Response("400", ["message" => "You performed a malformed request"]);
+                        ResponseController::respondJson($res);
+                    }
+                    break;
+                case "password":
+                    if (is_numeric($route[2]) && $_SERVER["REQUEST_METHOD"] == "POST") {
+                        // POST /auth/password/{id}
+                        if (!isset($_SERVER["HTTP_X_AUTH_TOKEN"])) {
+                            $res = new Response("400", ["message" => "You performed a malformed request"]);
+                            ResponseController::respondJson($res);
+                        }
+                        $auth_token = $_SERVER["HTTP_X_AUTH_TOKEN"];
+                        $auth = new AuthenticationProvider();
+                        try {
+                            $auth->updatePassword($auth_token, $route[2], $_POST["old_password"], $_POST["new_password"]);
+                        } catch (Exception $e) {
+                            $res = new Response("500", ["message" => "Internal Server Error"]);
+                            ResponseController::respondJson($res);
+                        }
+                    }
+                    else {
+                        $res = new Response("400", ["message" => "You performed a malformed request"]);
+                        ResponseController::respondJson($res);
+                    }
+                    break;
+            }
+        }
+    case "document":
+        if (isset($route[1]) && is_numeric($route[1])) {
+            switch ($_SERVER["REQUEST_METHOD"]) {
+                case "GET":
+                    // GET /document/{id}
+                    if (!isset($_SERVER["HTTP_X_AUTH_TOKEN"])) {
+                        $res = new Response("400", ["message" => "You performed a malformed request"]);
+                        ResponseController::respondJson($res);
+                    }
+                    $auth_token = $_SERVER["HTTP_X_AUTH_TOKEN"];
+                    $docs = new DocumentProvider();
+                    try {
+                        $docs->readDocumentMetaById($auth_token, $route[1]);
+                    } catch (Exception $e) {
+                        $res = new Response("500", ["message" => "Internal Server Error"]);
+                        ResponseController::respondJson($res);
+                    }
+                    break;
+                case "DELETE":
+                    if (!isset($_SERVER["HTTP_X_AUTH_TOKEN"])) {
+                        $res = new Response("400", ["message" => "You performed a malformed request"]);
+                        ResponseController::respondJson($res);
+                    }
+                    $auth_token = $_SERVER["HTTP_X_AUTH_TOKEN"];
+                    $docs = new DocumentProvider();
+                    try {
+                        $docs->deleteDocument($auth_token, $route[1]);
+                    } catch (Exception $e) {
+                        $res = new Response("500", ["message" => "Internal Server Error"]);
+                        ResponseController::respondJson($res);
+                    }
+                    break;
+                case "PATCH":
+                    // PATCH /document/{id}
+                    parse_str(file_get_contents('php://input'), $_PATCH);
+                    if (!isset($_SERVER["HTTP_X_AUTH_TOKEN"])) {
+                        $res = new Response("400", ["message" => "You performed a malformed request"]);
+                        ResponseController::respondJson($res);
+                    }
+                    $auth_token = $_SERVER["HTTP_X_AUTH_TOKEN"];
+                    $docs = new DocumentProvider();
+                    try {
+                        $docs->updateDocument($auth_token, $route[1], $_PATCH["title"]);
+                    } catch (Exception $e) {
+                        $res = new Response("500", ["message" => "Internal Server Error"]);
+                        ResponseController::respondJson($res);
+                    }
+                    break;
+            }
+        }
+        else if ($_SERVER["REQUEST_METHOD"] == "POST") {
+            // POST /document/
+            if (!isset($_SERVER["HTTP_X_AUTH_TOKEN"])) {
+                $res = new Response("400", ["message" => "You performed a malformed request"]);
+                ResponseController::respondJson($res);
+            }
+            $auth_token = $_SERVER["HTTP_X_AUTH_TOKEN"];
+            $docs = new DocumentProvider();
+            try {
+                $docs->createDocument($auth_token, $_POST["title"]);
+            } catch (Exception $e) {
+                $res = new Response("500", ["message" => "Internal Server Error"]);
+                ResponseController::respondJson($res);
+            }
+        }
+        else {
+            $res = new Response("400", ["message", "You performed a malformed request"]);
+            ResponseController::respondJson($res);
+        }
+        break;
+    case "documents":
+        if ($_SERVER["REQUEST_METHOD"] == "GET") {
+            if (is_numeric($route[1])) {
+                // GET /documents/{id}
+                if (!isset($_SERVER["HTTP_X_AUTH_TOKEN"])) {
+                    $res = new Response("400", ["message" => "You performed a malformed request"]);
+                    ResponseController::respondJson($res);
+                }
+                $auth_token = $_SERVER["HTTP_X_AUTH_TOKEN"];
+                $docs = new DocumentProvider();
+                try {
+                    $docs->readDocumentMetaCollection($auth_token, $route[1]);
+                } catch (Exception $e) {
+                    $res = new Response("500", ["message" => "Internal Server Error"]);
+                    ResponseController::respondJson($res);
+                }
+            }
+            else {
+                $res = new Response("400", ["message", "You performed a malformed request"]);
+                ResponseController::respondJson($res);
+            }
+        }
+        else {
+            $res = new Response("400", ["message", "You performed a malformed request"]);
+            ResponseController::respondJson($res);
+        }
+        break;
+    case "delta":
+        if (isset($route[1]) && is_numeric($route[1])) {
+            switch ($_SERVER["REQUEST_METHOD"]) {
+                case "GET":
+                    // GET /delta/{id}
+                    if (!isset($_SERVER["HTTP_X_AUTH_TOKEN"])) {
+                        $res = new Response("400", ["message" => "You performed a malformed request"]);
+                        ResponseController::respondJson($res);
+                    }
+                    $auth_token = $_SERVER["HTTP_X_AUTH_TOKEN"];
+                    $delta = new DeltaProvider();
+                    try {
+                        $delta->readDelta($auth_token, $route[1]);
+                    } catch (Exception $e) {
+                        $res = new Response("500", ["message" => "Internal Server Error"]);
+                        ResponseController::respondJson($res);
+                    }
+                    break;
+                case "POST":
+                    // POST /delta/{id}
+                    if (!isset($_SERVER["HTTP_X_AUTH_TOKEN"])) {
+                        $res = new Response("400", ["message" => "You performed a malformed request"]);
+                        ResponseController::respondJson($res);
+                    }
+                    $auth_token = $_SERVER["HTTP_X_AUTH_TOKEN"];
+                    $delta = new DeltaProvider();
+                    try {
+                        $delta->createDelta($auth_token, $route[1], $_POST["delta"]);
+                    } catch (Exception $e) {
+                        $res = new Response("500", ["message" => "Internal Server Error"]);
+                        ResponseController::respondJson($res);
+                    }
+                    break;
+                case "DELETE":
+                    // DELETE /delta/{id}
+                    if (!isset($_SERVER["HTTP_X_AUTH_TOKEN"])) {
+                        $res = new Response("400", ["message" => "You performed a malformed request"]);
+                        ResponseController::respondJson($res);
+                    }
+                    $auth_token = $_SERVER["HTTP_X_AUTH_TOKEN"];
+                    $delta = new DeltaProvider();
+                    try {
+                        $delta->deleteDelta($auth_token, $route[1]);
+                    } catch (Exception $e) {
+                        $res = new Response("500", ["message" => "Internal Server Error"]);
+                        ResponseController::respondJson($res);
+                    }
+                    break;
+                case "PATCH":
+                    // PATCH /delta/{id}
+                    if (!isset($_SERVER["HTTP_X_AUTH_TOKEN"])) {
+                        $res = new Response("400", ["message" => "You performed a malformed request"]);
+                        ResponseController::respondJson($res);
+                    }
+                    parse_str(file_get_contents('php://input'), $_PATCH);
+                    $auth_token = $_SERVER["HTTP_X_AUTH_TOKEN"];
+                    $delta = new DeltaProvider();
+                    try {
+                        $delta->updateDelta($auth_token, $route[1], $_PATCH["delta"]);
+                    } catch (Exception $e) {
+                        $res = new Response("500", ["message" => "Internal Server Error"]);
+                        ResponseController::respondJson($res);
+                    }
+                    break;
             }
         } else {
-            $r = new Response("405", ["message" => "method not allowed"]);
-            ResponseController::respondJson($r);
+            $res = new Response("400", ["message", "You performed a malformed request"]);
+            ResponseController::respondJson($res);
+        }
+        break;
+    case "deltas":
+        if (is_numeric($route[1])) {
+            switch ($_SERVER["REQUEST_METHOD"]) {
+                case "GET":
+                    // GET /deltas/{id}
+                    if (!isset($_SERVER["HTTP_X_AUTH_TOKEN"])) {
+                        $res = new Response("400", ["message" => "You performed a malformed request"]);
+                        ResponseController::respondJson($res);
+                    }
+                    $auth_token = $_SERVER["HTTP_X_AUTH_TOKEN"];
+                    $delta = new DeltaProvider();
+                    try {
+                        $delta->readDocumentDeltas($auth_token, $route[1]);
+                    } catch (Exception $e) {
+                        $res = new Response("500", ["message" => "Internal Server Error"]);
+                        ResponseController::respondJson($res);
+                    }
+                    break;
+            }
         }
         break;
     default:
-        $r = new Response("404", ["message" => "not found"]);
-        ResponseController::respondJson($r);
+        $res = new Response("404", ["message" => "not found"]);
+        ResponseController::respondJson($res);
         break;
 }

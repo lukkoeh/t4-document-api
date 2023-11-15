@@ -11,13 +11,19 @@ class DocumentProvider
      * @throws Exception
      * provides a list of all documents by a user
      */
-    #[NoReturn] public function readDocumentMetaCollection($token): void
+    #[NoReturn] public function readDocumentMetaCollection($token, $user_id_provided): void
     {
         # validate token
         AuthenticationProvider::validatetoken($token);
         $db = DatabaseSingleton::getInstance();
         # get user id
         $userId = AuthenticationProvider::getUserIdByToken($token);
+        // check if user id provided in parameter matches the one from database
+        if ($user_id_provided != $userId) {
+            $res = new Response("400", ["message" => "User id does not match"]);
+            ResponseController::respondJson($res);
+        }
+
         $result = $db->perform_query("SELECT * FROM t4_documents WHERE document_owner = ? ORDER BY document_created DESC", [$userId]);
         if ($result->num_rows == 0) {
             $r = new Response("404", ["message" => "Document not found"]);
@@ -66,7 +72,7 @@ class DocumentProvider
         # retrieve the document id
         $document_id = $db->get_last_inserted_id();
         if ($result) {
-            $r = new Response("200", ["message" => "Document created", "document_id" => $document_id]);
+            $r = new Response("200", ["message" => "Document created successfully", "id" => $document_id]);
         } else {
             $r = new Response("500", ["message" => "Document could not be created"]);
         }

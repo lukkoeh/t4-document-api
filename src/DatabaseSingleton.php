@@ -10,17 +10,18 @@ class DatabaseSingleton
 {
     private static $instance = null; # empty instance by default
     private $connection; # connection of the instance
-    private static $host = "database.docker";
+    private static $host = "host.docker.internal";
     private static $db = "t4api";
     private static $user = "t4api";
 
     private static $password = "t4api1234";
+    private static $port = 23306;
 
     /*
      * This constructor creates a DB object and connects to the database, the instance is saved in the connection variable
      * */
     private function __construct() {
-        $this->connection = new mysqli("p:".self::$host, self::$user, self::$password, self::$db);
+        $this->connection = new mysqli("p:".self::$host, self::$user, self::$password, self::$db, self::$port);
         if ($this->connection->connect_error) {
             die("Connection failed: " . $this->connection->connect_error);
         }

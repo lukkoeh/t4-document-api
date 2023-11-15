@@ -1,4 +1,4 @@
-openapi: 3.0.0
+openapi: 3.1.0
 info:
   title: T4-Document-API
   description: An API to interact with the database of the T4-Document-App
@@ -336,7 +336,91 @@ paths:
                     type: string
                     description: Bad Request
                     example: An internal Server Error occurred
-
-
+  /auth/login/:
+    post:
+      summary: Login using credentials, obtain a token
+      tags:
+        - Authentication-API
+      requestBody:
+        description: The user data given by request
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  description: The email of the user
+                  example: john.doe@gmail.com
+                password:
+                  type: string
+                  description: The password of the user
+                  example: 12345
+      responses:
+        "200":
+          description: Authorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: Conflict
+                    example: uuid
+                  id:
+                    type: integer
+                    description: The users id
+                    example: 1
+        "404":
+          description: If the user was not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Not found
+                    example: The requested user was not found
+        "401":
+          description: If the authentication fails
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Not authorized
+                    example: Your credentials are incorrect
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Bad Request
+                    example: You performed a malformed request
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Bad Request
+                    example: An internal Server Error occurred
+  /auth/validate/:
+    get:
+      summary: Checks if a token is still valid
+      tags:
+        - Authentication-API
 
 

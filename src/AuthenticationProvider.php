@@ -19,7 +19,7 @@ class AuthenticationProvider
     /**
      * @throws Exception
      */
-    public function login($username, $password): void
+    #[NoReturn] public function login($username, $password): void
     {
         # Get database connection
         $database_connection = DatabaseSingleton::getInstance();
@@ -41,7 +41,8 @@ class AuthenticationProvider
             ResponseController::respondJson($res);
         }
         # Return 200 with token, fetch the token from db (latest token by the user, always the right token)
-        $token_fetch = $database_connection->perform_query("SELECT session_token FROM t4_sessions WHERE session_user = ? ORDER BY session_created ASC LIMIT 1", [$userstatus["user_id"]]);
+        $token_fetch_id = $database_connection->get_last_inserted_id();
+        $token_fetch = $database_connection->perform_query("SELECT session_token FROM t4_sessions WHERE session_id = ?", [$token_fetch_id]);
         $res = new Response("200", ["message" => "authorized", "user_id" => $userstatus["user_id"], "token" => $token_fetch->fetch_assoc()["session_token"]]);
         ResponseController::respondJson($res);
     }
@@ -50,7 +51,7 @@ class AuthenticationProvider
      * @throws Exception
      * Checks if a token is valid, for every request. Also provide the answer directly.
      */
-    public static function validatetoken($token): void
+    public static function validatetoken($token, $needs_response = false): void
     {
         $database_connection = DatabaseSingleton::getInstance();
         # Check if token exists
@@ -65,8 +66,13 @@ class AuthenticationProvider
                 $res = new Response("401", ["message" => "Token expired"]);
                 ResponseController::respondJson($res);
             }
-            # if not expired just return.
-            return;
+            # if not expired check if a response is needed
+            if ($needs_response) {
+                # if response is needed return true
+                $user_id = AuthenticationProvider::getUserIdByToken($token);
+                $res = new Response("200", ["message" => "Token is valid", "id" => $user_id]);
+                ResponseController::respondJson($res);
+            }
         } else {
             # if not exists
             $res = new Response("401", ["message" => "Invalid token"]);
@@ -99,7 +105,7 @@ class AuthenticationProvider
         if (!$user_insert) {
             $res = new Response("500", ["message" => "Error while creating user"]);
         } else {
-            $res = new Response("200", ["message" => "User created successfully"]);
+            $res = new Response("200", ["message" => "User created successfully", "user_id" => $database_connection->get_last_inserted_id()]);
         }
         ResponseController::respondJson($res);
     }
@@ -108,12 +114,17 @@ class AuthenticationProvider
      * Create deleteuser function
      * @throws Exception
      */
-    #[NoReturn] public function deleteUser($token): void {
+    #[NoReturn] public function deleteUser($token, $user_id_provided): void {
         # check if token is valid
         AuthenticationProvider::validatetoken($token);
         $db_connection = DatabaseSingleton::getInstance();
         # get user id from token
         $user_id = $db_connection->perform_query("SELECT session_user FROM t4_sessions WHERE session_token = ?", [$token])->fetch_assoc()["session_user"];
+        // check if user id provided in parameter matches the one from database
+        if ($user_id_provided != $user_id) {
+            $res = new Response("400", ["message" => "User id does not match"]);
+            ResponseController::respondJson($res);
+        }
         # Delete all session tokens of the user
         $delete_sessions = $db_connection->perform_query("DELETE FROM t4_sessions WHERE session_user = ?", [$user_id]);
         $delete_deltas = $db_connection->perform_query("DELETE FROM t4_deltas WHERE delta_owner = ?", [$user_id]);
@@ -136,7 +147,7 @@ class AuthenticationProvider
      * Update a user with the given parameters
      * @throws Exception
      */
-    public function updatePassword($token, $oldpassword, $newpassword): void
+    public function updatePassword($token, $user_id_provided, $oldpassword, $newpassword): void
     {
         # check if the token is valid
         AuthenticationProvider::validatetoken($token);
@@ -144,6 +155,11 @@ class AuthenticationProvider
         $database_connection = DatabaseSingleton::getInstance();
         # get user id from token
         $user_id = $database_connection->perform_query("SELECT session_user FROM t4_sessions WHERE session_token = ?", [$token])->fetch_assoc()["session_user"];
+        // check if user id provided in parameter matches the one from database
+        if ($user_id_provided != $user_id) {
+            $res = new Response("400", ["message" => "User id does not match"]);
+            ResponseController::respondJson($res);
+        }
         # get old password-hash
         $old_salted = $oldpassword . self::$salt;
         $oldpassword_hashed = hash("sha256", $old_salted);
@@ -169,13 +185,18 @@ class AuthenticationProvider
     /**
      * @throws Exception
      */
-    public function updateUserdata($token, $firstname, $lastname, $email): void
+    #[NoReturn] public function updateUserdata($token, $user_id_provided, $firstname, $lastname, $email): void
     {
         # check if token is valid
         AuthenticationProvider::validatetoken($token);
         $db_connection = DatabaseSingleton::getInstance();
         # get user id from token
         $user_id = $db_connection->perform_query("SELECT session_user FROM t4_sessions WHERE session_token = ?", [$token])->fetch_assoc()["session_user"];
+        // check if user id provided in parameter matches the one from database
+        if ($user_id_provided != $user_id) {
+            $res = new Response("400", ["message" => "User id does not match"]);
+            ResponseController::respondJson($res);
+        }
         # check if email is already in use
         $emailcount = $db_connection->perform_query("SELECT COUNT(user_id) as usercount FROM t4_users WHERE user_email = ? AND NOT user_id = ?", [$email, $user_id])->fetch_assoc()["usercount"];
         if ($emailcount > 0) {
@@ -195,13 +216,18 @@ class AuthenticationProvider
     /**
      * @throws Exception
      */
-    public function readUserdata($token): void
+    #[NoReturn] public function readUserdata($token, $user_id_provided): void
     {
         # check if token is valid
         AuthenticationProvider::validatetoken($token);
         $db_connection = DatabaseSingleton::getInstance();
         # get user id from token
         $user_id = $db_connection->perform_query("SELECT session_user FROM t4_sessions WHERE session_token = ?", [$token])->fetch_assoc()["session_user"];
+        // check if user id provided in parameter matches the one from database
+        if ($user_id_provided != $user_id) {
+            $res = new Response("400", ["message" => "User id does not match"]);
+            ResponseController::respondJson($res);
+        }
         # get full user dataset from token
         $user_data = $db_connection->perform_query("SELECT user_id, user_firstname, user_lastname, user_email FROM t4_users WHERE user_id = ?", [$user_id])->fetch_assoc();
         $res = new Response("200", ["message" => "User data fetched successfully", "data" => $user_data]);
