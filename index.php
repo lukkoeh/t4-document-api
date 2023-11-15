@@ -15,12 +15,17 @@ function autoload($class): void
 
 spl_autoload_register('autoload');
 
-# Specify JSON Header and encoding
+# Specify JSON Header and encoding, as well as CORS headers
 header('Content-Type: application/json; charset=utf-8;');
 header('Access-Control-Allow-Origin: http://localhost:8080');
-header('Access-Control-Allow-Methods: GET, PUT, POST, DELETE');
-header('Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With');
-
+header('Access-Control-Allow-Methods: GET, PATCH, POST, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-Auth-Token');
+header('Access-Control-Allow-Credentials: true');
+# Ignore OPTIONS Preflight call
+if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
+    $res = new Response("200", ["message" => "ok"]);
+    ResponseController::respondJson($res);
+}
 # get credentials from post arguments from rest api call
 
 # Parse Path
@@ -28,6 +33,12 @@ $route = explode("/", strtok($_SERVER['REQUEST_URI'], '?'));
 # Remove first blank element
 array_shift($route);
 $option_count = sizeof($route);
+
+# Ignore OPTIONS Preflight call
+if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
+    $res = new Response("200", ["message" => "ok"]);
+    ResponseController::respondJson($res);
+}
 
 switch ($route[0]) {
     case "user":
@@ -70,7 +81,7 @@ switch ($route[0]) {
                     }
                     $auth_token = $_SERVER["HTTP_X_AUTH_TOKEN"];
                     $user_id = $route[1];
-                    parse_str(file_get_contents('php://input'), $_PATCH);
+                    $_PATCH = json_decode(file_get_contents('php://input'), true);
                     $auth = new AuthenticationProvider();
                     try {
                         $auth->updateUserdata($auth_token, $user_id, $_PATCH["firstname"], $_PATCH["lastname"], $_PATCH["email"]);
@@ -134,7 +145,8 @@ switch ($route[0]) {
                     }
                     break;
                 case "password":
-                    if (is_numeric($route[2]) && $_SERVER["REQUEST_METHOD"] == "POST") {
+                    if (is_numeric($route[2]) && $_SERVER["REQUEST_METHOD"] == "PATCH") {
+                        $_PATCH = json_decode(file_get_contents('php://input'), true);
                         // POST /auth/password/{id}
                         if (!isset($_SERVER["HTTP_X_AUTH_TOKEN"])) {
                             $res = new Response("400", ["message" => "You performed a malformed request"]);
@@ -143,7 +155,7 @@ switch ($route[0]) {
                         $auth_token = $_SERVER["HTTP_X_AUTH_TOKEN"];
                         $auth = new AuthenticationProvider();
                         try {
-                            $auth->updatePassword($auth_token, $route[2], $_POST["old_password"], $_POST["new_password"]);
+                            $auth->updatePassword($auth_token, $route[2], $_PATCH["old_password"], $_PATCH["new_password"]);
                         } catch (Exception $e) {
                             $res = new Response("500", ["message" => "Internal Server Error"]);
                             ResponseController::respondJson($res);

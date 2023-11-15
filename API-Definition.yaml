@@ -473,7 +473,7 @@ paths:
                     description: Request malformed
                     example: You performed a malformed request
   /auth/password/{id}:
-    post:
+    patch:
       tags:
         - Authentication-API
       summary: Change the password of a user
