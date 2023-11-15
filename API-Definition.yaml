@@ -15,6 +15,8 @@ tags:
     description: Everything you need to interact with Documents
   - name: Delta-CRUD
     description: Everything you need to interact with Deltas, used for polling and syncing without the socket
+  - name: Shares
+    description: Provides functionality for sharing and unsharing documents
 paths:
   /user/{id}:
     get:
@@ -1304,3 +1306,76 @@ paths:
                                 type: string
                                 description: Bad Request
                                 example: An internal Server Error occurred
+  /share/{document_id}/{user_id}:
+    post:
+      tags:
+        - Shares
+      summary: Shares a document with a user
+      parameters:
+        - in: header
+          name: X-Auth-Token
+          description: The auth token of the user, will be used to find the user.
+          required: true
+          schema:
+              type: string
+              format: uuid
+        - in: path
+          name: document_id
+          description: The id of the document
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: user_id
+          description: The id of the target user
+          required: true
+          schema:
+              type: integer
+      responses:
+        "200":
+          description: If the document was shared successfully
+          content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    message:
+                      type: string
+                      description: OK
+                      example: Document shared successfully
+    delete:
+      summary: Unshares a document with a user
+      tags:
+        - Shares
+      parameters:
+        - in: header
+          name: X-Auth-Token
+          description: The auth token of the user, will be used to find the user.
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: document_id
+          description: The id of the document
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: user_id
+          description: The id of the target user
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: If the document was unshared successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: OK
+                    example: Document unshared successfully

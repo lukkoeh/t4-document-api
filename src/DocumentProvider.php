@@ -25,12 +25,19 @@ class DocumentProvider
         }
 
         $result = $db->perform_query("SELECT * FROM t4_documents WHERE document_owner = ? ORDER BY document_created DESC", [$userId]);
+        # also get all documents that are shared with the user
+        $result_shared = $db->perform_query("SELECT * FROM t4_documents WHERE document_id IN (SELECT document_id FROM t4_shared WHERE user_id = ?) ORDER BY document_created DESC", [$userId]);
         if ($result->num_rows == 0) {
             $r = new Response("404", ["message" => "Document not found"]);
         } else {
             # Iterate though array to build a assoc array with all rows.
             $documents = [];
             while ($row = $result->fetch_assoc()) {
+                $row["document_shared"] = false;
+                $documents[] = $row;
+            }
+            while ($row = $result_shared->fetch_assoc()) {
+                $row["document_shared"] = true;
                 $documents[] = $row;
             }
             # print out the document data
@@ -52,10 +59,20 @@ class DocumentProvider
         $userId = AuthenticationProvider::getUserIdByToken($token);
         $result = $db->perform_query("SELECT * FROM t4_documents WHERE document_owner = ? AND document_id = ?", [$userId, $documentid]);
         if ($result->num_rows == 0) {
-            $r = new Response("404", ["message" => "Document not found"]);
+            # look if there is a shared document with the user
+            $result_shared = $db->perform_query("SELECT * FROM t4_documents WHERE document_id IN (SELECT document_id FROM t4_shared WHERE user_id = ?) AND document_id = ?", [$userId, $documentid]);
+            if ($result_shared->num_rows == 0) {
+                $r = new Response("404", ["message" => "Document not found"]);
+            } else {
+                $result_shared = $result_shared->fetch_assoc();
+                $result_shared["document_shared"] = true;
+                $r = new Response("200", $result_shared);
+            }
         } else {
+            $result = $result->fetch_assoc();
+            $result["document_shared"] = false;
             # print out the document data
-            $r = new Response("200", $result->fetch_assoc());
+            $r = new Response("200", $result);
         }
         ResponseController::respondJson($r);
     }
@@ -119,4 +136,69 @@ class DocumentProvider
         }
         ResponseController::respondJson($r);
     }
+
+    /**
+     * @throws Exception
+     */
+    #[NoReturn] public function shareDocument($token, $document_id, $user_id_target): void {
+        AuthenticationProvider::validatetoken($token);
+        $db_connection = DatabaseSingleton::getInstance();
+        $user_id = AuthenticationProvider::getUserIdByToken($token);
+        # check if the document exists
+        $result = $db_connection->perform_query("SELECT COUNT(document_id) as doccount FROM t4_documents WHERE document_owner = ? AND document_id = ?", [$user_id, $document_id])->fetch_assoc()["doccount"];
+        if ($result == 0) {
+            $r = new Response("404", ["message" => "Document not found"]);
+            ResponseController::respondJson($r);
+        }
+        # check if the user exists
+        $result = $db_connection->perform_query("SELECT COUNT(user_id) as usercount FROM t4_users WHERE user_id = ?", [$user_id_target])->fetch_assoc()["usercount"];
+        if ($result == 0) {
+            $r = new Response("404", ["message" => "User not found"]);
+            ResponseController::respondJson($r);
+        }
+        # check if the user already has access to the document
+        $result = $db_connection->perform_query("SELECT COUNT(user_id) as usercount FROM t4_shared WHERE user_id = ? AND document_id = ?", [$user_id_target, $document_id])->fetch_assoc()["usercount"];
+        if ($result != 0) {
+            $r = new Response("400", ["message" => "User already has access to the document"]);
+            ResponseController::respondJson($r);
+        }
+        # share the document
+        $result = $db_connection->perform_query("INSERT INTO t4_shared (user_id, document_id) VALUES (?, ?)", [$user_id_target, $document_id]);
+        if ($result) {
+            $r = new Response("200", ["message" => "Document shared"]);
+        } else {
+            $r = new Response("500", ["message" => "Document could not be shared"]);
+        }
+        ResponseController::respondJson($r);
+    }
+
+    /**
+     * @throws Exception
+     */
+    #[NoReturn] public function unshareDocument($token, $document_id, $user_id_target): void {
+        AuthenticationProvider::validatetoken($token);
+        $db_connection = DatabaseSingleton::getInstance();
+        $user_id = AuthenticationProvider::getUserIdByToken($token);
+        # check if the document exists
+        $result = $db_connection->perform_query("SELECT COUNT(document_id) as doccount FROM t4_documents WHERE document_owner = ? AND document_id = ?", [$user_id, $document_id])->fetch_assoc()["doccount"];
+        if ($result == 0) {
+            $r = new Response("404", ["message" => "Document not found"]);
+            ResponseController::respondJson($r);
+        }
+        # check if the user exists
+        $result = $db_connection->perform_query("SELECT COUNT(user_id) as usercount FROM t4_users WHERE user_id = ?", [$user_id_target])->fetch_assoc()["usercount"];
+        if ($result == 0) {
+            $r = new Response("404", ["message" => "User not found"]);
+            ResponseController::respondJson($r);
+        }
+        # unshare the document
+        $result = $db_connection->perform_query("DELETE FROM t4_shared WHERE user_id = ? AND document_id = ?", [$user_id_target, $document_id]);
+        if ($result) {
+            $r = new Response("200", ["message" => "Document unshared"]);
+        } else {
+            $r = new Response("500", ["message" => "Document could not be unshared"]);
+        }
+        ResponseController::respondJson($r);
+    }
+
 }

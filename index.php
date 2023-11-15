@@ -356,6 +356,46 @@ switch ($route[0]) {
             }
         }
         break;
+    case "share":
+        if (is_numeric($route[1]) && is_numeric($route[2])) {
+            switch ($_SERVER["REQUEST_METHOD"]) {
+                case "POST":
+                    // POST /share/{document_id}/{user_id}
+                    if (!isset($_SERVER["HTTP_X_AUTH_TOKEN"])) {
+                        $res = new Response("400", ["message" => "You performed a malformed request"]);
+                        ResponseController::respondJson($res);
+                    }
+                    $auth_token = $_SERVER["HTTP_X_AUTH_TOKEN"];
+                    $docs = new DocumentProvider();
+                    try {
+                        $docs->shareDocument($auth_token, $route[1], $route[2]);
+                    } catch (Exception $e) {
+                        $res = new Response("500", ["message" => "Internal Server Error"]);
+                        ResponseController::respondJson($res);
+                    }
+                    break;
+                case "DELETE":
+                    // DELETE /share/{document_id}/{user_id}
+                    if (!isset($_SERVER["HTTP_X_AUTH_TOKEN"])) {
+                        $res = new Response("400", ["message" => "You performed a malformed request"]);
+                        ResponseController::respondJson($res);
+                    }
+                    $auth_token = $_SERVER["HTTP_X_AUTH_TOKEN"];
+                    $docs = new DocumentProvider();
+                    try {
+                        $docs->unshareDocument($auth_token, $route[1], $route[2]);
+                    } catch (Exception $e) {
+                        $res = new Response("500", ["message" => "Internal Server Error"]);
+                        ResponseController::respondJson($res);
+                    }
+                    break;
+                default:
+                    $res = new Response("400", ["message", "You performed a malformed request"]);
+                    ResponseController::respondJson($res);
+                    break;
+            }
+        }
+        break;
     default:
         $res = new Response("404", ["message" => "not found"]);
         ResponseController::respondJson($res);
