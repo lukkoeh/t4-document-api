@@ -196,7 +196,7 @@ switch ($route[0]) {
                     try {
                         $docs->deleteDocument($auth_token, $route[1]);
                     } catch (Exception $e) {
-                        $res = new Response("500", ["message" => "Internal Server Error"]);
+                        $res = new Response("500", ["message" => "Internal Server Error, in index.php"]);
                         ResponseController::respondJson($res);
                     }
                     break;

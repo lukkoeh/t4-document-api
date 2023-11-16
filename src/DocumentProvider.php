@@ -23,10 +23,8 @@ class DocumentProvider
             $res = new Response("400", ["message" => "User id does not match"]);
             ResponseController::respondJson($res);
         }
-
-        $result = $db->perform_query("SELECT * FROM t4_documents WHERE document_owner = ? ORDER BY document_created DESC", [$userId]);
         # also get all documents that are shared with the user
-        $result_shared = $db->perform_query("SELECT * FROM t4_documents WHERE document_id IN (SELECT document_id FROM t4_shared WHERE user_id = ?) ORDER BY document_created DESC", [$userId]);
+        $result = $db->perform_query("SELECT * FROM t4_documents WHERE document_id IN (SELECT document_id FROM t4_shared WHERE user_id = ?) ORDER BY document_created DESC", [$userId]);
         if ($result->num_rows == 0) {
             $r = new Response("404", ["message" => "Document not found"]);
         } else {
@@ -34,10 +32,6 @@ class DocumentProvider
             $documents = [];
             while ($row = $result->fetch_assoc()) {
                 $row["document_shared"] = false;
-                $documents[] = $row;
-            }
-            while ($row = $result_shared->fetch_assoc()) {
-                $row["document_shared"] = true;
                 $documents[] = $row;
             }
             # print out the document data
@@ -124,7 +118,9 @@ class DocumentProvider
         $user_id = AuthenticationProvider::getUserIdByToken($token);
         # Remove all deltas for the document id
         $delta_delete = $db_connection->perform_query("DELETE FROM t4_deltas WHERE delta_owner = ? AND delta_document = ?", [$user_id, $document_id]);
-        if (!$delta_delete) {
+        # Remove all shared of this document
+        $shared_delete = $db_connection->perform_query("DELETE FROM t4_shared WHERE document_id = ?", [$document_id]);
+        if (!$delta_delete || !$shared_delete) {
             $r = new Response("500", ["message" => "Failed while deleting deltas for the document"]);
             ResponseController::respondJson($r);
         }
