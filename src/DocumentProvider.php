@@ -86,8 +86,9 @@ class DocumentProvider
             $documentname = "Untitled Document";
         }
         $result = $db->perform_query("INSERT INTO t4_documents (document_title, document_owner) VALUES (?, ?)", [$documentname, $user_id]);
-        # retrieve the document id
         $document_id = $db->get_last_inserted_id();
+        # also share it with the user
+        $result_share = $db->perform_query("INSERT INTO t4_shared (user_id, document_id) VALUES (?, ?)", [$user_id, $document_id]);
         if ($result) {
             $r = new Response("200", ["message" => "Document created successfully", "id" => $document_id]);
         } else {
