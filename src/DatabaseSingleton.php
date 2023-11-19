@@ -15,7 +15,7 @@ class DatabaseSingleton
     private static $user = "t4api";
 
     private static $password = "t4api1234";
-    private static $port = 23306;
+    private static $port = 10003;
 
     /*
      * This constructor creates a DB object and connects to the database, the instance is saved in the connection variable
