@@ -17,6 +17,8 @@ services:
       - MYSQL_DATABASE=t4api
       - MYSQL_USER=t4api
       - MYSQL_PASSWORD=t4api1234
+    volumes:
+      - ./layout.sql/:/docker-entrypoint-initdb.d/init.sql
 networks:
     default:
         name: t4api
