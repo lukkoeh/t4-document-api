@@ -26,7 +26,7 @@ class DocumentProvider
         # also get all documents that are shared with the user
         $result = $db->perform_query("SELECT * FROM t4_documents WHERE document_id IN (SELECT document_id FROM t4_shared WHERE user_id = ?) ORDER BY document_created DESC", [$userId]);
         if ($result->num_rows == 0) {
-            $r = new Response("404", ["message" => "Document not found"]);
+            $r = new Response("404", ["message" => "No documents available"]);
         } else {
             # Iterate though array to build a assoc array with all rows.
             $documents = [];
@@ -116,8 +116,13 @@ class DocumentProvider
         AuthenticationProvider::validatetoken($token);
         $db_connection = DatabaseSingleton::getInstance();
         $user_id = AuthenticationProvider::getUserIdByToken($token);
-        # Remove all deltas for the document id
-        $delta_delete = $db_connection->perform_query("DELETE FROM t4_deltas WHERE delta_owner = ? AND delta_document = ?", [$user_id, $document_id]);
+        # check if the document is owned or shared with the user specified by the token
+        $result = $db_connection->perform_query("SELECT COUNT(document_id) as doccount FROM t4_documents WHERE document_id IN (SELECT document_id FROM t4_shared WHERE user_id = ?) AND document_id = ?", [$user_id, $document_id])->fetch_assoc()["doccount"];
+        if ($result == 0) {
+            $r = new Response("404", ["message" => "Document not found"]);
+            ResponseController::respondJson($r);
+        }
+        $delta_delete = $db_connection->perform_query("DELETE FROM t4_deltas WHERE delta_document = ?", [$document_id]);
         # Remove all shared of this document
         $shared_delete = $db_connection->perform_query("DELETE FROM t4_shared WHERE document_id = ?", [$document_id]);
         if (!$delta_delete || !$shared_delete) {
@@ -125,7 +130,7 @@ class DocumentProvider
             ResponseController::respondJson($r);
         }
         # Remove the document
-        $result = $db_connection->perform_query("DELETE FROM t4_documents WHERE document_owner = ? AND document_id = ?", [$user_id, $document_id]);
+        $result = $db_connection->perform_query("DELETE FROM t4_documents WHERE document_id = ?", [$document_id]);
         if ($result) {
             $r = new Response("200", ["message" => "Document deleted"]);
         } else {
